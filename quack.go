@@ -221,10 +221,18 @@ func (c *Client) RollbackSnapshot(ctx context.Context, n int) error {
 	if err != nil {
 		return err
 	}
+	tx, err := c.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	for _, table := range tables {
-		if _, err := c.db.QueryContext(ctx, fmt.Sprintf("DROP TABLE %s;", table)); err != nil {
+		if _, err := tx.QueryContext(ctx, fmt.Sprintf("DROP TABLE %s;", table)); err != nil {
 			return err
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
 	}
 	sort.Strings(matches)
 	return unzipAndLoad(ctx, c.db, filepath.Join(c.dir, "snapshot", matches[len(matches)-n]))
